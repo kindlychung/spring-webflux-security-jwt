@@ -43,11 +43,13 @@ import reactor.core.publisher.Mono;
 
 import java.util.function.Function;
 
+import static org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers.pathMatchers;
+
 /**
  * A Spring RESTful Application showing authentication and authorization
  * Signed Commit
- * @author rafa
  *
+ * @author rafa
  **/
 @SpringBootApplication
 @EnableWebFluxSecurity
@@ -95,15 +97,18 @@ public class SecuredRestApplication {
 
         http
                 .authorizeExchange()
-                    .pathMatchers("/login", "/")
-                    .authenticated()
+                .pathMatchers("/api/admin").hasAuthority("ROLE_ADMIN")
+                .pathMatchers("/api/private").hasAuthority("ROLE_USER")
+                .pathMatchers("/api/guest").hasAuthority("ROLE_GUEST")
+                .pathMatchers("/login", "/").permitAll()
+                .anyExchange()
+                .authenticated()
                 .and()
-                    .addFilterAt(basicAuthenticationFilter(), SecurityWebFiltersOrder.HTTP_BASIC)
-                       .authorizeExchange()
-                    .pathMatchers("/api/**")
-                    .authenticated()
+                .addFilterAt(basicAuthenticationFilter(), SecurityWebFiltersOrder.HTTP_BASIC)
+                .authorizeExchange()
                 .and()
-                    .addFilterAt(bearerAuthenticationFilter(), SecurityWebFiltersOrder.AUTHENTICATION);
+                .addFilterAt(bearerAuthenticationFilter(), SecurityWebFiltersOrder.AUTHENTICATION)
+                .authorizeExchange();
 
         return http.build();
     }
@@ -115,13 +120,13 @@ public class SecuredRestApplication {
      *
      * @return AuthenticationWebFilter
      */
-    private AuthenticationWebFilter basicAuthenticationFilter(){
+    private AuthenticationWebFilter basicAuthenticationFilter() {
         UserDetailsRepositoryReactiveAuthenticationManager authManager;
         AuthenticationWebFilter basicAuthenticationFilter;
         ServerAuthenticationSuccessHandler successHandler;
 
         authManager = new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsRepository());
-        successHandler = new  BasicAuthenticationSuccessHandler();
+        successHandler = new BasicAuthenticationSuccessHandler();
 
         basicAuthenticationFilter = new AuthenticationWebFilter(authManager);
         basicAuthenticationFilter.setAuthenticationSuccessHandler(successHandler);
@@ -139,17 +144,17 @@ public class SecuredRestApplication {
      *
      * @return bearerAuthenticationFilter that will authorize requests containing a JWT
      */
-    private AuthenticationWebFilter bearerAuthenticationFilter(){
+    private AuthenticationWebFilter bearerAuthenticationFilter() {
         AuthenticationWebFilter bearerAuthenticationFilter;
         Function<ServerWebExchange, Mono<Authentication>> bearerConverter;
         ReactiveAuthenticationManager authManager;
 
-        authManager  = new BearerTokenReactiveAuthenticationManager();
+        authManager = new BearerTokenReactiveAuthenticationManager();
         bearerAuthenticationFilter = new AuthenticationWebFilter(authManager);
         bearerConverter = new ServerHttpBearerAuthenticationConverter();
 
         bearerAuthenticationFilter.setAuthenticationConverter(bearerConverter);
-        bearerAuthenticationFilter.setRequiresAuthenticationMatcher(ServerWebExchangeMatchers.pathMatchers("/api/**"));
+        bearerAuthenticationFilter.setRequiresAuthenticationMatcher(pathMatchers("/api/**"));
 
         return bearerAuthenticationFilter;
     }
